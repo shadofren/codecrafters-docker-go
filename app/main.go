@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"os"
 	"os/exec"
 )
@@ -10,14 +10,17 @@ import (
 func main() {
 
 	command := os.Args[3]
-  args := os.Args[4:]
+	args := os.Args[4:]
 
 	cmd := exec.Command(command, args...)
-	output, err := cmd.Output()
-	if err != nil {
-		fmt.Printf("Err: %v", err)
-		os.Exit(1)
-	}
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	err := cmd.Run()
+	must(err)
+}
 
-	fmt.Println(string(output))
+func must(err error) {
+	if err != nil {
+		log.Fatal(err)
+	}
 }
