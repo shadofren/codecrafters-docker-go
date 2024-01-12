@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"io/fs"
 	"log"
@@ -16,14 +15,17 @@ var perm fs.FileMode = 0755
 // Usage: your_docker.sh run <image> <command> <arg1> <arg2> ...
 func main() {
 
+	image := os.Args[2]
 	command := os.Args[3]
 	args := os.Args[4:]
 
 	sandbox, err := os.MkdirTemp("", "sandbox-")
 	must(err)
 
+	Download(image, sandbox)
+
 	// copy the command from outside the sandbox, preserving the permissions
-	copyFile(command, sandbox+command)
+	/* copyFile(command, sandbox+command) */
 
 	err = syscall.Chroot(sandbox)
 	must(err)
@@ -35,7 +37,7 @@ func main() {
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 
-  // pid namespace separation
+	// pid namespace separation
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags: syscall.CLONE_NEWPID,
 	}
@@ -81,17 +83,4 @@ func must(err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
-}
-
-func listFilesUsingFS(dir string) error {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return err
-	}
-
-	for _, entry := range entries {
-		fmt.Println(entry.Name())
-	}
-
-	return nil
 }
