@@ -16,6 +16,10 @@ func main() {
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	err := cmd.Run()
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		statusCode := exitErr.ExitCode()
+		os.Exit(statusCode)
+	}
 	must(err)
 }
 
