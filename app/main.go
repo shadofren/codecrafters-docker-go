@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"os"
 	"os/exec"
@@ -9,19 +11,22 @@ import (
 	"syscall"
 )
 
+var perm fs.FileMode = 0755
+
 // Usage: your_docker.sh run <image> <command> <arg1> <arg2> ...
 func main() {
 
 	command := os.Args[3]
 	args := os.Args[4:]
 
-	sandbox, err := os.MkdirTemp("", "sandbox")
+	sandbox, err := os.MkdirTemp("", "sandbox-")
 	must(err)
 
 	// copy the command from outside the sandbox, preserving the permissions
 	copyFile(command, sandbox+command)
 
-	syscall.Chroot(sandbox)
+	err = syscall.Chroot(sandbox)
+	must(err)
 	os.Chdir("/")
 
 	createDevNull()
@@ -29,6 +34,11 @@ func main() {
 	cmd := exec.Command(command, args...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
+
+  // pid namespace separation
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Cloneflags: syscall.CLONE_NEWPID,
+	}
 
 	err = cmd.Run()
 	if exitErr, ok := err.(*exec.ExitError); ok {
@@ -51,13 +61,13 @@ func copyFile(srcFile, destFile string) {
 	defer dest.Close()
 
 	_, err = io.Copy(dest, src)
-  must(err)
-
-  stat, err := src.Stat()
 	must(err)
 
-  err = dest.Chmod(stat.Mode())
-  must(err)
+	stat, err := src.Stat()
+	must(err)
+
+	err = dest.Chmod(stat.Mode())
+	must(err)
 }
 
 func createDevNull() {
@@ -71,4 +81,17 @@ func must(err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func listFilesUsingFS(dir string) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		fmt.Println(entry.Name())
+	}
+
+	return nil
 }
